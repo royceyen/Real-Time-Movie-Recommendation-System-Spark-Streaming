@@ -1,0 +1,102 @@
+
+Instruction Guide: Setting Up the Real-Time Movie Recommender System on Databricks
+
+---
+
+1. Initial Setup
+
+1.1 Create Databricks Resources
+- Set up a Databricks workspace (Azure / AWS / GCP).
+- Create a compute cluster (recommended runtime: 11.3 LTS or above, with Delta Lake support).
+- Ensure cluster libraries include:
+  - com.microsoft.azure:spark-mssql-connector
+  - com.databricks:spark-xml_2.12
+  - Delta Lake is pre-installed.
+
+---
+
+2. Blob Storage Mount (One-Time)
+
+2.1 Configure Blob Access
+- Go to your Data Import Test (2).py file.
+- Fill in the correct:
+  - storageaccountname
+  - containername
+  - accesskey
+- Run the Mount Block.
+
+2.2 Validate
+- Check if /mnt/trends appears under Data > DBFS.
+
+---
+
+3. Prepare Initial Data (Optional for First Run)
+- (If not already available) download MovieLens dataset.
+- Uncomment and run blocks to:
+  - Move CSVs to /mnt/trends/dataset/
+  - Write to Azure SQL Tables (movie_data, ratings_data).
+  - Write ratings to /mnt/trends/delta/ratings in Delta format.
+
+---
+
+4. Set up Streaming Job
+
+4.1 Streaming New Ratings
+- Keep the streaming block (already active) running.
+- This reads from /mnt/trends/ratings_stream/ and updates Delta + SQL.
+
+Tip: Keep this streaming notebook always active or configure it as a continuous job.
+
+---
+
+5. Create a Scheduled Job for Model Retraining
+
+5.1 Upload & Open Untitled Notebook 2025-04-16
+- Adjust the SQL credentials and blob path if necessary.
+- Test it manually first by running all cells.
+
+5.2 Create Databricks Job
+- Go to Workflows > Jobs > Create Job.
+- Configure:
+  - Task: Run Untitled Notebook.
+  - Cluster: Select appropriate cluster.
+  - Schedule: Example: Every 6 hours or daily.
+
+---
+
+6. Deploy the Streamlit App
+
+6.1 Prepare Streamlit Server
+- On a separate VM (Azure VM / EC2 / local machine), install:
+  pip install streamlit pandas pyarrow azure-storage-blob
+
+6.2 Configure app.py
+- Set:
+  - account_name
+  - container_name
+  - sas_token
+- Adjust folder paths if needed (Parquet location).
+
+6.3 Run Streamlit
+- streamlit run app.py
+- Open the URL given (usually localhost:8501 or public IP if remote).
+
+---
+
+7. Architecture Summary
+
+User -> Streamlit UI -> Azure Blob Storage (ratings_stream)
+        -> Databricks Streaming Job -> Delta Table + Azure SQL DB (ratings_data)
+        -> Databricks Scheduled Job -> Train ALS Model -> Generate Recommendations
+        -> Azure Blob Storage (recommendations/user_recs.parquet)
+        -> Streamlit UI (show recommendations)
+
+---
+
+8. Important Notes
+- Always monitor the Streaming Job.
+- Maintain blob SAS tokens securely.
+- Optimize Streamlit app for production.
+- Set up alerting for job failures (Databricks Alerts).
+
+---
